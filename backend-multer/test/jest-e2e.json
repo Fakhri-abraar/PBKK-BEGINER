@@ -1,0 +1,38 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": "..", 
+  "testEnvironment": "node",
+  "testRegex": ".e2e-spec.ts$",
+  "transform": {
+    "^.+\\.(t|j)s$": "ts-jest"
+  },
+  "moduleNameMapper": {
+    "^src/(.*)$": "<rootDir>/src/$1"
+  },
+
+  "collectCoverageFrom": [
+    "**/*.ts",
+    "!**/node_modules/**",
+    "!**/dist/**",
+    "!**/test/**",
+    "!**/main.ts",
+    "!**/app.module.ts",
+    "!**/auth/jwt.strategy.ts", 
+    "!**/auth/auth.module.ts"
+  ],
+  
+  "coverageDirectory": "./coverage",
+  
+  "coveragePathIgnorePatterns": [
+    "/node_modules/",
+    "/dist/",
+    "/test/",
+    "main.ts",
+    "app.module.ts",
+    "prisma.service.ts", 
+    "jwt.strategy.ts",
+    "auth.module.ts",
+    "scheduler.module.ts",
+    "email.module.ts"
+  ]
+}

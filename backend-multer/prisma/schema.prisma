@@ -1,0 +1,61 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Menggunakan SQLite untuk development
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+// 1. Model User
+model User {
+  username      String     @id
+  password      String
+  refreshToken  String?    
+  email         String?    @unique 
+  fullName      String?
+
+  tasks         Task[]     // Relasi ke Task yang dibuat (Ganti dari 'posts')
+  categories    Category[] // Relasi ke Category yang dibuat
+
+  @@map("users")
+}
+
+// 2. Model Category (BARU)
+model Category {
+  id            String   @id @default(uuid())
+  name          String
+  
+  ownerId       String
+  owner         User     @relation(fields: [ownerId], references: [username], onDelete: Cascade)
+  tasks         Task[]   
+
+  @@map("categories")
+}
+
+// 3. Model Task (MENGGANTIKAN model Post)
+model Task {
+  id            String      @id @default(uuid())
+  title         String      // 4.1.1. Title
+  description   String?     // 4.1.1. Description
+  priority      String      // 4.1.1. Priority ('low', 'medium', 'high')
+  dueDate       DateTime?   // 4.1.1. Due date (Bisa null)
+  isCompleted   Boolean     @default(false) 
+  filePath      String?     // 2.2.1. Path file terlampir
+  
+  authorId      String
+  author        User        @relation(fields: [authorId], references: [username], onDelete: Cascade)
+  
+  categoryId    String?
+  category      Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  
+  isPublic      Boolean     @default(false) 
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@map("tasks")
+}
