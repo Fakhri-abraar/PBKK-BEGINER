@@ -38,16 +38,16 @@ const LoginPage: React.FC = () => {
             });
 
             // Asumsi response.data mengandung: { accessToken, username, email }
-            const { accessToken, username: responseUsername, email } = response.data;
+            const { access_token, username: responseUsername, email } = response.data;
             
             // Simpan status login ke context (dan LocalStorage melalui AuthContext)
-            login(accessToken, { username: responseUsername, email });
+            login(access_token, { username: responseUsername, email });
 
             // FIX KRITIS: Redirect ke halaman yang benar
             router.push('/tasks/my'); 
 
         } catch (err) {
-            const axiosError = err as AxiosError;
+            const axiosError = err as AxiosError<{ message: string }>;
             // Tampilkan pesan error dari server jika ada
             const errorMessage = axiosError.response?.data?.message || 'Login failed. Check your credentials.';
             setError(errorMessage);

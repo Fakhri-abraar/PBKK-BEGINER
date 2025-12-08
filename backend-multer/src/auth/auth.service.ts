@@ -15,7 +15,7 @@ export class AuthService {
 
   private generateTokens(username: string) {
     const payload = { username, sub: username };
-    const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
+    const accessToken = this.jwtService.sign(payload, { expiresIn: '1d' });
 
     // Add a unique identifier (jti) to ensure each refresh token is unique
     const refreshPayload = {

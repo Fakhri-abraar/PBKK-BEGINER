@@ -22,8 +22,8 @@ interface NewTaskData {
     categoryId: string;
 }
 
-// Default ID sementara untuk memastikan form bisa disubmit jika fetch kategori gagal (401)
-const TEMP_CATEGORY_ID_PLACEHOLDER = 'temp-id-ganti-dengan-uuid'; 
+// Default ID sementara untuk memastikan form bisa disubmit jika fetch kategori gagal
+const TEMP_CATEGORY_ID_PLACEHOLDER = 'temp-id-placeholder'; 
 
 const NewTaskPage: React.FC = () => {
     const { user, accessToken, isAuthReady, logout } = useAuth();
@@ -53,11 +53,10 @@ const NewTaskPage: React.FC = () => {
 
         if (accessToken) {
             const fetchCategories = async () => {
-                // Tidak menggunakan loading state penuh agar form tetap muncul
                 try {
                     const response = await axios.get<Category[]>(`${API_BASE_URL}/categories`, {
                         headers: {
-                            Authorization: `Bearer ${accessToken}`, // Pastikan formatnya benar
+                            Authorization: `Bearer ${accessToken}`,
                         },
                     });
                     
@@ -69,16 +68,16 @@ const NewTaskPage: React.FC = () => {
                             categoryId: response.data[0].id 
                         }));
                     } else {
+                        // Tetap gunakan placeholder jika tidak ada kategori
                         setFormData(prev => ({ ...prev, categoryId: TEMP_CATEGORY_ID_PLACEHOLDER }));
-                        setError('Warning: No categories found. Using temporary ID. Please create one.');
                     }
                 } catch (err) {
                     const axiosError = err as AxiosError<{ message: string }>;
                     if (axiosError.response?.status === 401 || axiosError.response?.status === 403) {
-                         // Jika fetch gagal 401/403, tampilkan peringatan
-                         setError('CRITICAL: Cannot load categories (401/403). JWT Validation is failing on the backend.');
+                         setError('Session expired. Please re-login to load categories.');
                     } else {
-                         setError(`Warning: Failed to load categories: ${axiosError.response?.data?.message || axiosError.message}`);
+                         // Jangan block user sepenuhnya, biarkan mereka mencoba input manual jika perlu
+                         console.error("Failed to fetch categories", axiosError);
                     }
                 } 
             };
@@ -108,13 +107,14 @@ const NewTaskPage: React.FC = () => {
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
         
-        // PENTING: Mencegah submit jika masih menggunakan placeholder ID
+        // Validasi: Cegah submit jika categoryId masih placeholder
         if (formData.categoryId === TEMP_CATEGORY_ID_PLACEHOLDER && categories.length === 0) {
-             setError("Category ID harus diisi dengan ID valid dari database Anda untuk menguji Task Creation.");
+             setError("You must create a Category first before creating a Task.");
              return;
         }
+        
         if (!accessToken || !formData.title) {
-             setError("Title and Category ID are required.");
+             setError("Title is required.");
              return;
         }
 
@@ -123,33 +123,30 @@ const NewTaskPage: React.FC = () => {
         setSuccess(null);
 
         try {
-            const payload = new FormData();
-            
-            // Mengubah tipe boolean ke string untuk FormData
-            payload.append('title', formData.title);
-            payload.append('description', formData.description);
-            payload.append('priority', formData.priority);
-            payload.append('isPublic', String(formData.isPublic)); 
-            payload.append('dueDate', formData.dueDate); 
-            payload.append('categoryId', formData.categoryId); 
+            // FIX: Menggunakan JSON Object, bukan FormData
+            const payload = {
+                title: formData.title,
+                description: formData.description,
+                priority: formData.priority,
+                isPublic: formData.isPublic, // Kirim boolean asli
+                categoryId: formData.categoryId,
+                // Konversi string date dari input HTML ke ISO string untuk backend
+                dueDate: formData.dueDate ? new Date(formData.dueDate).toISOString() : undefined,
+            };
 
-            if (file) {
-                payload.append('file', file); 
-            }
+            // Catatan: File 'file' diabaikan di sini karena endpoint POST /tasks 
+            // backend saat ini hanya menerima JSON dan tidak memproses upload file.
 
-            // Panggilan POST /tasks
             const response = await axios.post(`${API_BASE_URL}/tasks`, payload, {
                 headers: {
-                    // PENTING: Memastikan token dikirim dengan format 'Bearer '
                     Authorization: `Bearer ${accessToken}`,
-                    // Content-Type: 'multipart/form-data' TIDAK PERLU DITENTUKAN di sini
-                    // Axios dan FormData akan menanganinya otomatis
+                    'Content-Type': 'application/json', // Pastikan header JSON
                 },
             });
 
-            setSuccess(`Task created successfully! ID: ${response.data.id}`);
+            setSuccess(`Task "${response.data.title}" created successfully!`);
             
-            // Reset form
+            // Reset form state
             setFormData({ 
                 title: '', 
                 description: '', 
@@ -158,16 +155,20 @@ const NewTaskPage: React.FC = () => {
                 dueDate: '', 
                 categoryId: categories.length > 0 ? categories[0].id : TEMP_CATEGORY_ID_PLACEHOLDER 
             });
-            setFile(null);
+            setFile(null); // Reset file input UI
+
         } catch (err) {
-            const axiosError = err as AxiosError<{ message: string }>;
-             // Jika Create Task GAGAL karena 401/403 (TOKEN GAGAL)
+            const axiosError = err as AxiosError<{ message: string | string[] }>;
+            
              if (axiosError.response?.status === 401 || axiosError.response?.status === 403) {
                  logout();
                  router.push('/auth/login');
-                 setError('CRITICAL ERROR: TOKEN GAGAL VALIDASI (401/403). Segera cek ulang JWT Secret Key di backend NestJS Anda.');
+                 setError('Session expired. Please login again.');
             } else {
-                 setError(axiosError.response?.data?.message || 'Failed to create task. Check network or server logs.');
+                 const msg = axiosError.response?.data?.message;
+                 // Gabungkan pesan error jika berupa array (dari class-validator)
+                 const displayMsg = Array.isArray(msg) ? msg.join(', ') : (msg || 'Failed to create task.');
+                 setError(displayMsg);
             }
         } finally {
             setLoading(false);
@@ -179,18 +180,17 @@ const NewTaskPage: React.FC = () => {
     }
 
     if (!user) {
-        return <div className="text-center mt-5">Access Denied. Redirecting...</div>;
+        return <div className="text-center mt-5">Redirecting to login...</div>;
     }
 
-    // --- RENDERING FORM ---
     return (
         <div className="container mt-4">
-            <h1 className="mb-4 text-success">Create New Task ({user.username})</h1>
+            <h1 className="mb-4 text-success">Create New Task</h1>
             
             {success && <Alert variant="success">{success}</Alert>}
             {error && <Alert variant="danger">{error}</Alert>}
 
-            <Form onSubmit={handleSubmit} className="p-4 border rounded shadow-sm">
+            <Form onSubmit={handleSubmit} className="p-4 border rounded shadow-sm bg-white">
                 
                 <Row>
                     <Form.Group as={Col} className="mb-3" controlId="title">
@@ -202,17 +202,17 @@ const NewTaskPage: React.FC = () => {
                             onChange={handleChange}
                             required
                             disabled={loading}
+                            placeholder="Enter task title"
                         />
                     </Form.Group>
                     
                     <Form.Group as={Col} md="4" className="mb-3" controlId="categoryId">
                         <Form.Label>Category *
-                            <Link href="/categories/new" className="ms-2 small text-primary">
-                                (+ New Category)
+                            <Link href="/categories/new" className="ms-2 small text-primary" style={{textDecoration: 'none'}}>
+                                (+ New)
                             </Link>
                         </Form.Label>
                         {categories.length > 0 ? (
-                            // RENDER DROPDOWN JIKA KATEGORI BERHASIL DIMUAT
                             <Form.Select 
                                 name="categoryId" 
                                 value={formData.categoryId} 
@@ -220,28 +220,17 @@ const NewTaskPage: React.FC = () => {
                                 required
                                 disabled={loading}
                             >
-                                <option value="" disabled>Select Category</option>
                                 {categories.map(cat => (
                                     <option key={cat.id} value={cat.id}>{cat.name}</option>
                                 ))}
                             </Form.Select>
                         ) : (
-                            // RENDER INPUT TEKS JIKA GAGAL FETCH
-                            <>
                             <Form.Control 
                                 type="text"
-                                name="categoryId"
-                                placeholder="Enter a valid Category ID (e.g., UUID)"
-                                value={formData.categoryId}
-                                onChange={handleChange}
-                                required
-                                disabled={loading}
-                                isInvalid={formData.categoryId === TEMP_CATEGORY_ID_PLACEHOLDER}
+                                value="No categories found. Please create one."
+                                disabled
+                                className="text-muted"
                             />
-                            <Form.Text className="text-muted">
-                                *ID Kategori harus valid dari database Anda.
-                            </Form.Text>
-                            </>
                         )}
                     </Form.Group>
                 </Row>
@@ -255,6 +244,7 @@ const NewTaskPage: React.FC = () => {
                         value={formData.description}
                         onChange={handleChange}
                         disabled={loading}
+                        placeholder="Optional description"
                     />
                 </Form.Group>
 
@@ -287,13 +277,16 @@ const NewTaskPage: React.FC = () => {
                 </Row>
 
                 <Form.Group className="mb-3" controlId="file">
-                    <Form.Label>Attach File (Optional)</Form.Label>
+                    <Form.Label>Attach File (Disabled temporarily)</Form.Label>
                     <Form.Control
                         type="file"
                         onChange={handleFileChange}
-                        disabled={loading}
+                        disabled={true} 
+                        title="File upload is handled separately in this version"
                     />
-                    <Form.Text className="text-muted">Max file size depends on server limits.</Form.Text>
+                    <Form.Text className="text-muted">
+                        *File upload is currently disabled in this form.
+                    </Form.Text>
                 </Form.Group>
 
                 <Form.Group className="mb-3" controlId="isPublic">
@@ -310,7 +303,8 @@ const NewTaskPage: React.FC = () => {
                 <Button 
                     variant="success" 
                     type="submit" 
-                    disabled={loading || !formData.title || formData.categoryId === TEMP_CATEGORY_ID_PLACEHOLDER}
+                    disabled={loading || !formData.title || categories.length === 0}
+                    className="w-100"
                 >
                     {loading ? <Spinner animation="border" size="sm" /> : 'Create Task'}
                 </Button>
