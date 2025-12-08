@@ -58,7 +58,7 @@ const NewCategoryPage: React.FC = () => {
             }, 1000); 
 
         } catch (err) {
-            const axiosError = err as AxiosError;
+            const axiosError = err as AxiosError<{ message: string }>;
             
             if (axiosError.response?.status === 401 || axiosError.response?.status === 403) {
                  // Ini yang menangkap error 401 dari backend
@@ -113,8 +113,8 @@ const NewCategoryPage: React.FC = () => {
                 </Form>
                 
                 <div className="mt-3 text-center">
-                    <Link href="/tasks/new" passHref legacyBehavior>
-                        <a className="text-primary small">← Back to New Task</a>
+                    <Link href="/tasks/new" className="text-primary small">
+                        ← Back to New Task
                     </Link>
                 </div>
             </div>

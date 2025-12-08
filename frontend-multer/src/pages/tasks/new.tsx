@@ -73,7 +73,7 @@ const NewTaskPage: React.FC = () => {
                         setError('Warning: No categories found. Using temporary ID. Please create one.');
                     }
                 } catch (err) {
-                    const axiosError = err as AxiosError;
+                    const axiosError = err as AxiosError<{ message: string }>;
                     if (axiosError.response?.status === 401 || axiosError.response?.status === 403) {
                          // Jika fetch gagal 401/403, tampilkan peringatan
                          setError('CRITICAL: Cannot load categories (401/403). JWT Validation is failing on the backend.');
@@ -160,7 +160,7 @@ const NewTaskPage: React.FC = () => {
             });
             setFile(null);
         } catch (err) {
-            const axiosError = err as AxiosError;
+            const axiosError = err as AxiosError<{ message: string }>;
              // Jika Create Task GAGAL karena 401/403 (TOKEN GAGAL)
              if (axiosError.response?.status === 401 || axiosError.response?.status === 403) {
                  logout();
@@ -207,8 +207,8 @@ const NewTaskPage: React.FC = () => {
                     
                     <Form.Group as={Col} md="4" className="mb-3" controlId="categoryId">
                         <Form.Label>Category *
-                            <Link href="/categories/new" passHref legacyBehavior>
-                                <a className="ms-2 small text-primary">(+ New Category)</a>
+                            <Link href="/categories/new" className="ms-2 small text-primary">
+                                (+ New Category)
                             </Link>
                         </Form.Label>
                         {categories.length > 0 ? (

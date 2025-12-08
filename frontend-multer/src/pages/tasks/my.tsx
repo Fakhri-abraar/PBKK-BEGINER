@@ -66,7 +66,7 @@ const MyTasksPage: React.FC = () => {
                 }
 
             } catch (err) {
-                const axiosError = err as AxiosError;
+                const axiosError = err as AxiosError<{ message: string }>;
                 if (axiosError.response?.status === 401 || axiosError.response?.status === 403) {
                     // Jika token invalid atau expired
                     logout();
